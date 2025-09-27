@@ -1,0 +1,6 @@
+@ChatbotAIService_HostAddress = http://localhost:5149
+
+GET {{ChatbotAIService_HostAddress}}/
+Accept: application/json
+
+###
