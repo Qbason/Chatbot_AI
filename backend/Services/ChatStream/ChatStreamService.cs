@@ -12,28 +12,28 @@ namespace ChatbotAIService.Services
     {
         private readonly ChatClient _chatClient;
         private readonly ConversationContext _context;
-        private readonly IMediator _mediator;
         private readonly IStreamingConversationService _streamingService;
         private readonly ILogger<ChatStreamService> _logger;
+        private readonly ICurrentUserService _currentUserService;
 
         public ChatStreamService(
-            ChatClient chatClient, 
-            ConversationContext context, 
-            IMediator mediator, 
+            ChatClient chatClient,
+            ConversationContext context,
+            ICurrentUserService currentUserService,
             IStreamingConversationService streamingService,
             ILogger<ChatStreamService> logger)
         {
             _chatClient = chatClient;
             _context = context;
-            _mediator = mediator;
             _streamingService = streamingService;
             _logger = logger;
+            _currentUserService = currentUserService;
         }
 
         public async Task<IAsyncEnumerable<string>> StartStreamAsync(
-            int conversationId, 
-            string message, 
-            bool isResume = false, 
+            int conversationId,
+            string message,
+            bool isResume = false,
             CancellationToken cancellationToken = default)
         {
             await GetAndValidateConversation(conversationId, isResume, cancellationToken);
@@ -46,7 +46,7 @@ namespace ChatbotAIService.Services
 
             var conversationHistory = await GetConversationHistory(conversationId, cancellationToken);
 
-            await UpdateConversation(conversationId, ConversationStatus.Streaming, cancellationToken);
+            await UpdateConversationStatus(conversationId, ConversationStatus.Streaming, cancellationToken);
 
             //TODO: check if it will cancel stream when the connection drops
             var streamTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -55,9 +55,9 @@ namespace ChatbotAIService.Services
             return StreamOpenAIResponse(conversationHistory, aiMessage.Id, conversationId, streamTokenSource.Token);
         }
 
-        private async Task<bool> UpdateConversation(
-            int conversationId, 
-            ConversationStatus status, 
+        private async Task<bool> UpdateConversationStatus(
+            int conversationId,
+            ConversationStatus status,
             CancellationToken cancellationToken = default
         )
         {
@@ -132,7 +132,7 @@ namespace ChatbotAIService.Services
                 return new List<ChatMessage>();
 
             var messages = new List<ChatMessage>();
-            
+
             foreach (var message in conversation.Messages.OrderBy(m => m.Id))
             {
                 if (message.Role == Role.User)
@@ -142,7 +142,9 @@ namespace ChatbotAIService.Services
                 else if (message.Role == Role.AI)
                 {
                     messages.Add(ChatMessage.CreateAssistantMessage(message.Content));
-                }else{
+                }
+                else
+                {
                     _logger.LogWarning("Unknown message role {Role} in message ID {MessageId}", message.Role, message.Id);
                 }
             }
@@ -151,8 +153,8 @@ namespace ChatbotAIService.Services
         }
 
         private async IAsyncEnumerable<string> StreamOpenAIResponse(
-            List<ChatMessage> conversationHistory, 
-            int aiMessageId, 
+            List<ChatMessage> conversationHistory,
+            int aiMessageId,
             int conversationId,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
@@ -165,12 +167,8 @@ namespace ChatbotAIService.Services
                 if (cancellationToken.IsCancellationRequested)
                 {
 
-                    await _mediator.Send(new UpdateConversationStatusCommand
-                    {
-                        ConversationId = conversationId,
-                        Status = ConversationStatus.Stopped
-                    }, CancellationToken.None);
-                    
+                    await UpdateConversationStatus(conversationId, ConversationStatus.Stopped, CancellationToken.None);
+
                     _streamingService.UnregisterStreamingConversation(conversationId);
                     yield break;
                 }
@@ -181,23 +179,50 @@ namespace ChatbotAIService.Services
                     fullResponse += chunk;
                     chunkCount++;
 
-                    await _mediator.Send(new UpdateMessageCommand
+                    await UpdateMessage(new UpdateMessageCommand
                     {
                         MessageId = aiMessageId,
                         Content = fullResponse
                     }, CancellationToken.None);
 
+
                     yield return chunk;
                 }
             }
 
-            await _mediator.Send(new UpdateConversationStatusCommand
-            {
-                ConversationId = conversationId,
-                Status = ConversationStatus.Completed
-            }, CancellationToken.None);
+            await UpdateConversationStatus(conversationId, ConversationStatus.Completed, CancellationToken.None);
 
             _streamingService.UnregisterStreamingConversation(conversationId);
         }
+
+        private async Task<bool> UpdateConversationStatus(UpdateConversationStatusCommand request, CancellationToken cancellationToken)
+        {
+            var userId = _currentUserService.GetUserId();
+
+            var conversation = await _context.Conversations
+                .FirstOrDefaultAsync(c => c.Id == request.ConversationId && c.UserId == userId, cancellationToken);
+
+            if (conversation == null)
+                return false;
+
+            conversation.Status = request.Status;
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return true;
+        }
+
+        private async Task<bool> UpdateMessage(UpdateMessageCommand request, CancellationToken cancellationToken)
+        {
+            var message = await _context.Messages.FirstOrDefaultAsync(m => m.Id == request.MessageId, cancellationToken);
+
+            if (message == null)
+                return false;
+
+            message.Content = request.Content;
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return true;
+        }
+
     }
 }

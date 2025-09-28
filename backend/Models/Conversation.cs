@@ -4,9 +4,9 @@ namespace ChatbotAIService.Models
 {
     public enum ConversationStatus
     {
-        Streaming,
-        Completed,
-        Stopped
+        Streaming = 0,
+        Completed = 1,
+        Stopped = 2
     }
     public class Conversation
     {
