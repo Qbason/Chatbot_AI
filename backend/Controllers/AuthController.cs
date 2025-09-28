@@ -34,35 +34,13 @@ namespace ChatbotAIService.Controllers
                 return Unauthorized(new { message = "Invalid email" });
             }
 
-            Response.Cookies.Append("userId", userId, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = Request.IsHttps,
-                SameSite = SameSiteMode.Strict,
-                MaxAge = TimeSpan.FromDays(7),
-                Path = "/"
-            });
-
             return Ok(new
             {
                 message = "Login successful",
                 userId,
+                authHeader = $"UserId {userId}",
                 email = loginDto.Email,
                 isAuthenticated = true
-            });
-        }
-
-        [HttpPost("logout")]
-        public IActionResult Logout()
-        {
-            var currentUserId = _currentUserService.GetUserId();
-
-            Response.Cookies.Delete("userId");
-
-            return Ok(new
-            {
-                message = "Logout successful",
-                previousUserId = currentUserId
             });
         }
     }

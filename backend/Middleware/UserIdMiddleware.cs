@@ -1,3 +1,6 @@
+
+//! THIS MIDDLEWARE IS ONLY FOR SHOW PURPOSES! TO SIMULATE AUTHENTICATION
+
 namespace ChatbotAIService.Middleware
 {
     public class UserIdMiddlewareOptions
@@ -14,7 +17,6 @@ namespace ChatbotAIService.Middleware
     {
         private readonly RequestDelegate _next;
         private readonly UserIdMiddlewareOptions _options;
-        private const string USER_ID_COOKIE_NAME = "userId";
 
         public UserIdMiddleware(RequestDelegate next, UserIdMiddlewareOptions? options = null)
         {
@@ -30,11 +32,12 @@ namespace ChatbotAIService.Middleware
                 return;
             }
 
-            string? userId = context.Request.Cookies[USER_ID_COOKIE_NAME];
-            if(string.IsNullOrEmpty(userId))
+            string userId = context.Request.Headers.Authorization.ToString().Replace("UserId ", "");
+
+            if (string.IsNullOrEmpty(userId))
             {
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsync("Unauthorized: No userId cookie found");
+                await context.Response.WriteAsync("Unauthorized: No authorization header found");
                 return;
             }
 
@@ -45,10 +48,10 @@ namespace ChatbotAIService.Middleware
         private bool ShouldSkipMiddleware(HttpContext context)
         {
             var path = context.Request.Path.Value?.ToLowerInvariant();
-            
+
             if (path == null) return false;
 
-            return _options.SkippedPaths.Any(skipPath => 
+            return _options.SkippedPaths.Any(skipPath =>
                 path.StartsWith(skipPath, StringComparison.InvariantCultureIgnoreCase));
         }
     }

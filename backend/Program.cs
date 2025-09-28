@@ -79,7 +79,6 @@ if (app.Environment.IsDevelopment())
 });
 }
 
-// Enable CORS
 app.UseCors("AllowAngularApp");
 
 app.UseHttpsRedirection();
