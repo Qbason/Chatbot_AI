@@ -1,11 +1,10 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Chatbot_AI.Models;
+using ChatbotAIService.Models;
+using MediatR;
+using ChatbotAIService.Features.Conversations.Commands;
+using ChatbotAIService.Features.Conversations.Queries;
+using ChatbotAIService.Features.Messages.Commands;
+using ChatbotAIService.DTOs;
 
 namespace ChatbotAIService.Controllers
 {
@@ -13,95 +12,112 @@ namespace ChatbotAIService.Controllers
     [ApiController]
     public class ConversationController : ControllerBase
     {
-        private readonly ConversationContext _context;
+        private readonly IMediator _mediator;
 
-        public ConversationController(ConversationContext context)
+        public ConversationController(IMediator mediator)
         {
-            _context = context;
+            _mediator = mediator;
         }
 
-        // GET: api/Conversation
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Conversation>>> GetConversations()
         {
-            return await _context.Conversations.ToListAsync();
+            var conversations = await _mediator.Send(new GetAllConversationsQuery());
+            return Ok(conversations);
         }
 
-        // GET: api/Conversation/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Conversation>> GetConversation(int id)
         {
-            var conversation = await _context.Conversations.FindAsync(id);
+            var conversation = await _mediator.Send(new GetConversationByIdQuery
+            {
+                Id = id
+            });
 
             if (conversation == null)
             {
                 return NotFound();
             }
 
-            return conversation;
+            return Ok(conversation);
         }
 
-        // PUT: api/Conversation/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutConversation(int id, Conversation conversation)
+        public async Task<IActionResult> PutConversation(int id, UpdateConversationDto dto)
         {
-            if (id != conversation.Id)
+            var command = new UpdateConversationCommand
             {
-                return BadRequest();
-            }
+                Id = id,
+                Title = dto.Title
+            };
 
-            _context.Entry(conversation).State = EntityState.Modified;
+            var success = await _mediator.Send(command);
 
-            try
+            if (!success)
             {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ConversationExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                return NotFound();
             }
 
             return NoContent();
         }
 
-        // POST: api/Conversation
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<Conversation>> PostConversation(Conversation conversation)
+        public async Task<ActionResult<Conversation>> PostConversation(CreateConversationDto dto)
         {
-            _context.Conversations.Add(conversation);
-            await _context.SaveChangesAsync();
+            var command = new CreateConversationCommand
+            {
+                Title = dto.Title
+            };
+
+            var conversation = await _mediator.Send(command);
 
             return CreatedAtAction("GetConversation", new { id = conversation.Id }, conversation);
         }
 
-        // DELETE: api/Conversation/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteConversation(int id)
         {
-            var conversation = await _context.Conversations.FindAsync(id);
-            if (conversation == null)
+            var success = await _mediator.Send(new DeleteConversationCommand{ Id = id });
+
+            if (!success)
             {
                 return NotFound();
             }
 
-            _context.Conversations.Remove(conversation);
-            await _context.SaveChangesAsync();
-
             return NoContent();
         }
 
-        private bool ConversationExists(int id)
+        [HttpGet("{id}/stream_status")]
+        public async Task<ActionResult<ConversationStreamStatusDto>> GetConversationStreamStatus(int id)
         {
-            return _context.Conversations.Any(e => e.Id == id);
+            var status = await _mediator.Send(new GetConversationStreamStatusQuery{ ConversationId = id });
+
+            if (status == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(new ConversationStreamStatusDto { Status = status });
+        }
+
+        [HttpPost("message_feedback")]
+        public async Task<IActionResult> AddMessageFeedback([FromBody] MessageFeedbackDto dto)
+        {
+            var command = new AddMessageFeedbackCommand
+            {
+                ConversationId = dto.ConversationId,
+                MessageId = dto.MessageId,
+                Rating = dto.Rating
+            };
+
+            var success = await _mediator.Send(command);
+
+            if (!success)
+            {
+                return BadRequest("Message not found or does not belong to the specified conversation");
+            }
+
+            return Ok(new { message = "Feedback added successfully" });
         }
     }
 }

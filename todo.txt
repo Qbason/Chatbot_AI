@@ -1,0 +1,20 @@
+TODOS:
+    - create docker-compose.yaml for local deployment
+    - implement backend:
+        - use env in C# project
+        - create mockup for OPENAI service -> lorem ipsum etc.
+        - implement if there will be enough time to return message_id and conversation_id in stream api
+    - implement frontend
+
+
+Thoughts:
+    Idea of api:
+        /api/conversations for getting all conversations
+        /api/conversations/{id} for getting details about
+        /api/conversations POST it creates conversation and stream via EventStream
+        /api/conversations/{id}/stream_status if is streaming -> resume
+        /api/conversations/message_feedback -> conversation_id, message_id, rating: "thumbsUp/thumbsDown"
+
+        /api/chat/resume/stream -stream content of AI message -> event delta for chunks
+        /api/chat/resume used when conversation is still going it streams output
+        /api/chat/stop_conversation -> stop streaming (cancelation token) by conversation id
