@@ -18,11 +18,12 @@ public class ConversationContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        
+
         modelBuilder.Entity<User>()
             .HasMany(u => u.Conversations)
             .WithOne(c => c.User)
-            .HasForeignKey(c => c.UserId);
+            .HasForeignKey(c => c.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Conversation>()
             .HasKey(c => c.Id);
@@ -30,17 +31,20 @@ public class ConversationContext : DbContext
         modelBuilder.Entity<Message>()
             .HasOne(m => m.Conversation)
             .WithMany(c => c.Messages)
-            .HasForeignKey(m => m.ConversationId);
+            .HasForeignKey(m => m.ConversationId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<MessageRating>()
             .HasOne(mr => mr.Message)
             .WithMany(m => m.Ratings)
-            .HasForeignKey(mr => mr.MessageId);
+            .HasForeignKey(mr => mr.MessageId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<MessageRating>()
             .HasOne(mr => mr.User)
             .WithMany()
-            .HasForeignKey(mr => mr.UserId);
+            .HasForeignKey(mr => mr.UserId)
+            .OnDelete(DeleteBehavior.NoAction);
 
 
         base.OnModelCreating(modelBuilder);
