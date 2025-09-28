@@ -24,6 +24,7 @@ namespace ChatbotAIService.Features.Conversations.Handlers
             return await _context.Conversations
                 .Where(c => c.UserId == userId && c.Id == request.Id)
                 .Include(c => c.Messages)
+                    .ThenInclude(m => m.Ratings)
                 .FirstOrDefaultAsync(c => c.Id == request.Id, cancellationToken);
         }
     }
