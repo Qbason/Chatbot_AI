@@ -22,8 +22,16 @@ namespace ChatbotAIService.Features.Conversations.Handlers
             var userId = _currentUserService.GetUserId();
 
             return await _context.Conversations
-                .Include(c => c.Messages)
                 .Where(c => c.UserId == userId)
+                .Select(c => new Conversation
+                {
+                    Id = c.Id,
+                    Title = c.Title,
+                    UserId = c.UserId,
+                    Timestamp = c.Timestamp,
+                    Status = c.Status,
+                    Messages = new List<Message>()
+                })
                 .ToListAsync(cancellationToken);
         }
     }
