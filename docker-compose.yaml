@@ -1,5 +1,5 @@
 # SQL Server service for development
-version: '3.8'
+version: "3.8"
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -11,12 +11,17 @@ services:
       - "1433:1433"
     volumes:
       - sqlserverdata:/var/opt/mssql
-      - ./sqlserver-init:/docker-entrypoint-initdb.d
     restart: unless-stopped
   db-init:
     image: mcr.microsoft.com/mssql/server:2022-latest
     network_mode: service:sqlserver
-    command: bash -c "until /opt/mssql-tools18/bin/sqlcmd -C -S \${DB_HOST} -U \${DB_USER} -P \${DB_PASSWORD} -Q \"IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'ChatbotDB') CREATE DATABASE ChatbotDB\"; do echo retry && sleep 1; done"
+    environment:
+      - DB_HOST=localhost
+      - DB_USER=sa
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./init-db:/init-scripts
+    command: bash /init-scripts/init-db.sh
     depends_on:
       - sqlserver
 volumes:
