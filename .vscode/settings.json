@@ -1,3 +1,8 @@
 {
-    "dotnet.defaultSolution": "ChatbotAIService.sln"
+    "dotnet.defaultSolution": "ChatbotAIService.sln",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "[csharp]": {
+        "editor.defaultFormatter": "ms-dotnettools.csharp"
+    },
+    "editor.formatOnSave": true,
 }

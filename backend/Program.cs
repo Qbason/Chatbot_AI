@@ -4,13 +4,18 @@ using ChatbotAIService.Services;
 using ChatbotAIService.Middleware;
 using System.Reflection;
 using OpenAI.Chat;
+using DotNetEnv;
+using OpenAI;
+using System.ClientModel;
+
+Env.Load("../.env");
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<ConversationContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("ChatbotContext") ?? throw new InvalidOperationException("Connection string 'ChatbotContext' not found.")));
+    options.UseSqlServer(Environment.GetEnvironmentVariable("CONNECTION_STRING") ?? throw new InvalidOperationException("CONNECTION_STRING environment variable not found.")));
 
 
 builder.Services.AddSingleton<IStreamingConversationService, StreamingConversationService>();
@@ -23,12 +28,23 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddSingleton<ChatClient>(sp =>
 {
     var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-    var model = "gpt-4o";
+    var openai_url = Environment.GetEnvironmentVariable("OPENAI_API_ENDPOINT");
+    var endpoint = string.IsNullOrEmpty(openai_url) ? null : new Uri(openai_url);
+    var model = Environment.GetEnvironmentVariable("OPENAI_MODEL");
     if (string.IsNullOrEmpty(apiKey))
     {
         throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
     }
-    return new ChatClient(model, apiKey);
+    if (endpoint is null)
+    {
+        return new ChatClient(model, credential: new ApiKeyCredential(apiKey));
+    }
+
+    return new ChatClient(model, credential: new ApiKeyCredential(apiKey
+    ), options: new OpenAIClientOptions
+    {
+        Endpoint = endpoint
+    });
 });
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
@@ -46,7 +62,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseUserIdMiddleware(options => 
+app.UseUserIdMiddleware(options =>
 {
     options.SkippedPaths.Add("/api/auth");
     options.SkippedPaths.Add("/openapi");
