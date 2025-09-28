@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ChatbotAIService.Models
 {
     public enum ConversationStatus
@@ -19,8 +21,8 @@ namespace ChatbotAIService.Models
 
     public enum Role
     {
-        User,
-        AI
+        User = 0,
+        AI = 1
         //later there could be more roles like assistant and tool
     }
 
@@ -32,6 +34,7 @@ namespace ChatbotAIService.Models
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
         public List<MessageRating> Ratings { get; set; } = new List<MessageRating>();
         public int ConversationId { get; set; }
+        [JsonIgnore]
         public Conversation? Conversation { get; set; }
     }
 
