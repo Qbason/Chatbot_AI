@@ -9,7 +9,7 @@ namespace ChatbotAIService.Features.Messages.Handlers
     public class AddMessageFeedbackHandler : IRequestHandler<AddMessageFeedbackCommand, bool>
     {
         private readonly ConversationContext _context;
-        private readonly ICurrentUserService    _currentUserService;
+        private readonly ICurrentUserService _currentUserService;
 
         public AddMessageFeedbackHandler(ConversationContext context, ICurrentUserService currentUserService)
         {
@@ -22,10 +22,10 @@ namespace ChatbotAIService.Features.Messages.Handlers
             var userId = _currentUserService.GetUserId();
 
             var message = await _context.Messages
-                .FirstOrDefaultAsync(m => m.Id == request.MessageId 
-                    && m.ConversationId == request.ConversationId 
-                    && m.Conversation != null 
-                    && m.Conversation.UserId == userId, 
+                .FirstOrDefaultAsync(m => m.Id == request.MessageId
+                    && m.ConversationId == request.ConversationId
+                    && m.Conversation != null
+                    && m.Conversation.UserId == userId,
                     cancellationToken);
 
             if (message == null)
@@ -43,7 +43,8 @@ namespace ChatbotAIService.Features.Messages.Handlers
                 var newRating = new MessageRating
                 {
                     MessageId = request.MessageId,
-                    Value = request.Rating
+                    Value = request.Rating,
+                    UserId = userId
                 };
                 _context.MessageRatings.Add(newRating);
             }
