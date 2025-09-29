@@ -4,6 +4,10 @@ TODOS:
         - create mockup for OPENAI service -> lorem ipsum etc.
         - implement if there will be enough time to return message_id and conversation_id in stream api
     - implement frontend
+        - implement resume <- handle stream_status to decide
+        - improve scrolling
+        - improve warning while logging in (bad credentials)
+    - write readme how to run
 
 
 Thoughts:
