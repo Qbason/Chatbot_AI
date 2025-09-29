@@ -54,9 +54,8 @@ namespace ChatbotAIService.Features.Messages.Handlers
             }
 
             return await _chatStreamService.StartStreamAsync(
-                conversationId, 
-                request.Message, 
-                isResume: false, 
+                conversationId,
+                request.Message,
                 cancellationToken: cancellationToken);
         }
     }

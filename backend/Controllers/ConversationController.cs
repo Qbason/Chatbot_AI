@@ -77,7 +77,7 @@ namespace ChatbotAIService.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteConversation(int id)
         {
-            var success = await _mediator.Send(new DeleteConversationCommand{ Id = id });
+            var success = await _mediator.Send(new DeleteConversationCommand { Id = id });
 
             if (!success)
             {
@@ -85,19 +85,6 @@ namespace ChatbotAIService.Controllers
             }
 
             return NoContent();
-        }
-
-        [HttpGet("{id}/stream_status")]
-        public async Task<ActionResult<ConversationStreamStatusDto>> GetConversationStreamStatus(int id)
-        {
-            var status = await _mediator.Send(new GetConversationStreamStatusQuery{ ConversationId = id });
-
-            if (status == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(new ConversationStreamStatusDto { Status = status });
         }
 
         [HttpPost("message_feedback")]

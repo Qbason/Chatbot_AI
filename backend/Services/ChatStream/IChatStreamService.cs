@@ -3,9 +3,8 @@ namespace ChatbotAIService.Services
     public interface IChatStreamService
     {
         Task<IAsyncEnumerable<string>> StartStreamAsync(
-            int conversationId, 
-            string message, 
-            bool isResume = false, 
+            int conversationId,
+            string message,
             CancellationToken cancellationToken = default);
     }
 }
