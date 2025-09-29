@@ -1,0 +1,209 @@
+<div class="chat-container">
+  <mat-toolbar color="primary" class="toolbar">
+    <span>ChatBot AI</span>
+    <span class="spacer"></span>
+    <button mat-icon-button (click)="logout()" matTooltip="Logout">
+      <mat-icon>logout</mat-icon>
+    </button>
+  </mat-toolbar>
+
+  <div class="chat-content">
+    <mat-sidenav-container class="sidenav-container">
+      <mat-sidenav mode="side" opened class="sidebar">
+        <div class="sidebar-header">
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="newConversation()"
+            class="new-chat-btn"
+          >
+            <mat-icon>add</mat-icon>
+            New Chat
+          </button>
+        </div>
+
+        <mat-nav-list class="conversation-list">
+          @for (conversation of conversations(); track conversation.id) {
+          <mat-list-item
+            (click)="selectConversation(conversation.id)"
+            [class.selected]="selectedConversation()?.id === conversation.id"
+            class="conversation-item"
+            [lines]="editingConversationId() === conversation.id ? 1 : 2"
+          >
+            @if (editingConversationId() === conversation.id) {
+            <mat-form-field matListItemTitle class="edit-title-field" appearance="outline">
+              <input
+                matInput
+                [(ngModel)]="editingTitle"
+                (keydown.enter)="saveConversationTitle(conversation.id)"
+                (keydown.escape)="cancelEditTitle()"
+                (click)="$event.stopPropagation()"
+                #titleInput
+              />
+            </mat-form-field>
+            } @if (editingConversationId() !== conversation.id) {
+            <span matListItemTitle class="conversation-title">{{ conversation.title }}</span>
+            } @if (editingConversationId() === conversation.id) {
+            <div matListItemMeta class="edit-actions">
+              <button
+                mat-icon-button
+                (click)="$event.stopPropagation(); saveConversationTitle(conversation.id)"
+                matTooltip="Save"
+                color="primary"
+              >
+                <mat-icon>check</mat-icon>
+              </button>
+              <button
+                mat-icon-button
+                (click)="$event.stopPropagation(); cancelEditTitle()"
+                matTooltip="Cancel"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            } @else {
+            <div matListItemMeta class="conversation-actions">
+              <button
+                mat-icon-button
+                (click)="
+                  $event.stopPropagation(); startEditTitle(conversation.id, conversation.title)
+                "
+                matTooltip="Edit title"
+                class="edit-btn"
+              >
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button
+                mat-icon-button
+                (click)="$event.stopPropagation(); deleteConversation(conversation.id)"
+                matTooltip="Delete conversation"
+                class="delete-btn"
+              >
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+            }
+          </mat-list-item>
+          <mat-divider></mat-divider>
+          }
+        </mat-nav-list>
+      </mat-sidenav>
+
+      <mat-sidenav-content class="main-content">
+        @if (selectedConversation()) {
+        <div class="messages-container" #messageContainer>
+          @for (message of selectedConversation()!.messages; track message.id) {
+          <div class="message-wrapper" [class.user-message]="message.role === Role.User">
+            <mat-card class="message-card" [class.user-card]="message.role === Role.User">
+              <div class="message-header">
+                <div class="message-role">
+                  @if (message.role === Role.User) {
+                  <mat-icon>person</mat-icon>
+                  <span>You</span>
+                  } @else {
+                  <mat-icon>smart_toy</mat-icon>
+                  <span>AI Assistant</span>
+                  }
+                </div>
+                <div class="message-time">
+                  {{ message.timestamp | date : 'shortTime' }}
+                </div>
+              </div>
+
+              <div class="message-content">
+                {{ message.content }}
+              </div>
+
+              @if (message.role === Role.AI) {
+              <div class="message-actions">
+                <button
+                  mat-icon-button
+                  (click)="rateMessage(message.id, Rating.ThumbsUp)"
+                  [class.rated]="isRated(message, Rating.ThumbsUp)"
+                  matTooltip="Thumbs up"
+                >
+                  <mat-icon>thumb_up</mat-icon>
+                </button>
+                <button
+                  mat-icon-button
+                  (click)="rateMessage(message.id, Rating.ThumbsDown)"
+                  [class.rated]="isRated(message, Rating.ThumbsDown)"
+                  matTooltip="Thumbs down"
+                >
+                  <mat-icon>thumb_down</mat-icon>
+                </button>
+              </div>
+              }
+            </mat-card>
+          </div>
+          } @if (isStreaming() && streamingMessageContent()) {
+          <div class="message-wrapper">
+            <mat-card class="message-card streaming-card">
+              <div class="message-header">
+                <div class="message-role">
+                  <mat-icon>smart_toy</mat-icon>
+                  <span>AI Assistant</span>
+                </div>
+                <div class="streaming-indicator">
+                  <mat-spinner diameter="16"></mat-spinner>
+                  <span>Typing...</span>
+                </div>
+              </div>
+
+              <div class="message-content">
+                {{ streamingMessageContent() }}
+                <span class="cursor">|</span>
+              </div>
+            </mat-card>
+          </div>
+          }
+        </div>
+
+        <div class="input-container">
+          @if (isStreaming()) {
+          <div class="streaming-controls">
+            <button mat-raised-button color="warn" (click)="stopStreaming()">
+              <mat-icon>stop</mat-icon>
+              Stop Generation
+            </button>
+          </div>
+          }
+
+          <div class="input-wrapper">
+            <mat-form-field appearance="outline" class="message-input">
+              <textarea
+                matInput
+                placeholder="Type your message..."
+                [(ngModel)]="currentMessageValue"
+                (keydown)="onKeyPress($event)"
+                [disabled]="isStreaming()"
+                rows="3"
+                #messageInput
+              ></textarea>
+            </mat-form-field>
+            <button
+              mat-fab
+              color="primary"
+              (click)="sendMessage()"
+              [disabled]="!currentMessageValue.trim() || isStreaming()"
+              class="send-button"
+            >
+              <mat-icon>send</mat-icon>
+            </button>
+          </div>
+        </div>
+        } @else {
+        <div class="welcome-screen">
+          <mat-icon class="welcome-icon">chat</mat-icon>
+          <h2>Welcome to ChatBot AI</h2>
+          <p>Start a new conversation or select an existing one from the sidebar.</p>
+          <button mat-raised-button color="primary" (click)="newConversation()">
+            <mat-icon>add</mat-icon>
+            Start New Chat
+          </button>
+        </div>
+        }
+      </mat-sidenav-content>
+    </mat-sidenav-container>
+  </div>
+</div>
