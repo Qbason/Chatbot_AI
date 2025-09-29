@@ -86,6 +86,7 @@ app.UseHttpsRedirection();
 app.UseUserIdMiddleware(options =>
 {
     options.SkippedPaths.Add("/api/auth");
+    options.SkippedPaths.Add("/health");
     options.SkippedPaths.Add("/openapi");
 });
 
