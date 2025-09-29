@@ -3,10 +3,12 @@ TODOS:
     - implement backend:
         - create mockup for OPENAI service -> lorem ipsum etc.
         - implement if there will be enough time to return message_id and conversation_id in stream api
+        - optimize saving chunks - too much IO database
     - implement frontend
         - implement resume <- handle stream_status to decide
         - improve scrolling
         - improve warning while logging in (bad credentials)
+        - add markdown to message
     - write readme how to run
 
 
