@@ -1,0 +1,15 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln.docstates
+.git/
+.gitignore
+Dockerfile*
+docker-compose*
+README.md
+*.Development.json
+**/.DS_Store
+**/node_modules

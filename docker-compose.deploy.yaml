@@ -1,0 +1,87 @@
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: chatbot-db
+    env_file:
+      - .env
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "1433:1433"
+    volumes:
+      - db_data:/var/opt/mssql
+      - ./init-db:/docker-entrypoint-initdb.d
+    networks:
+      - chatbot-network
+    restart: unless-stopped
+
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: chatbot-db-init
+    depends_on:
+      - db
+    env_file:
+      - .env
+    volumes:
+      - ./init-db:/init-scripts
+    networks:
+      - chatbot-network
+    command: bash /init-scripts/init-db.sh
+    restart: "no"
+
+  db-migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.migrate
+    container_name: chatbot-db-migrate
+    env_file:
+      - .env
+    depends_on:
+      - db-init
+    networks:
+      - chatbot-network
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chatbot-backend
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db-migrate
+    networks:
+      - chatbot-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        ["CMD", "curl", "-f", "http://localhost:8080/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: chatbot-frontend
+    env_file:
+      - .env
+    ports:
+      - "80:80"
+    networks:
+      - chatbot-network
+    restart: unless-stopped
+
+volumes:
+  db_data:
+    driver: local
+
+networks:
+  chatbot-network:
+    driver: bridge

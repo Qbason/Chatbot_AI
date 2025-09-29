@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.git/
+.gitignore
+Dockerfile*
+docker-compose*
+README.md
+**/.DS_Store
+coverage/
+.nyc_output/
+*.log
+.angular/
