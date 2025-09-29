@@ -28,29 +28,15 @@ namespace ChatbotAIService.Features.Messages.Handlers
         {
             int conversationId;
 
-            if (request.ConversationId.HasValue)
+            conversationId = request.ConversationId;
+            var userId = _currentUserService.GetUserId();
+
+            var conversationExists = await _context.Conversations
+                .AnyAsync(c => c.Id == conversationId && c.UserId == userId, cancellationToken);
+
+            if (!conversationExists)
             {
-                conversationId = request.ConversationId.Value;
-                var userId = _currentUserService.GetUserId();
-
-                var conversationExists = await _context.Conversations
-                    .AnyAsync(c => c.Id == conversationId && c.UserId == userId, cancellationToken);
-
-                if (!conversationExists)
-                {
-                    throw new UnauthorizedAccessException($"Conversation {conversationId} not found or access denied.");
-                }
-            }
-            else
-            {
-                var createConversationCommand = new CreateConversationCommand
-                {
-                    // TODO: Title should be generated via small LLM based on first message to return short title
-                    Title = request.Message.Length > 50 ? request.Message.Substring(0, 50) + "..." : request.Message
-                };
-
-                var conversation = await _mediator.Send(createConversationCommand, cancellationToken);
-                conversationId = conversation.Id;
+                throw new UnauthorizedAccessException($"Conversation {conversationId} not found or access denied.");
             }
 
             return await _chatStreamService.StartStreamAsync(

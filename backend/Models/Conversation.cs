@@ -33,9 +33,9 @@ namespace ChatbotAIService.Models
         public required string Content { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
         public List<MessageRating> Ratings { get; set; } = new List<MessageRating>();
-        public int ConversationId { get; set; }
+        public required int ConversationId { get; set; }
         [JsonIgnore]
-        public Conversation? Conversation { get; set; }
+        public Conversation Conversation { get; set; } = null!;
     }
 
 

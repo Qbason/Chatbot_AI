@@ -3,6 +3,8 @@ using MediatR;
 using ChatbotAIService.Features.Messages.Commands;
 using ChatbotAIService.Features.Conversations.Commands;
 using ChatbotAIService.DTOs;
+using ChatbotAIService.Features.Conversations.Queries;
+using System.Text.Json;
 
 namespace ChatbotAIService.Controllers
 {
@@ -12,8 +14,6 @@ namespace ChatbotAIService.Controllers
     {
         private readonly IMediator _mediator = mediator;
 
-        //TODO: return more than a string -> message content and message id
-        //TODO: use type delta and message
         // SSE 
         [HttpPost("stream")]
         public async Task<IActionResult> StreamChat([FromBody] StreamChatDto dto, CancellationToken cancellationToken = default)
@@ -28,16 +28,32 @@ namespace ChatbotAIService.Controllers
 
                 var streamResponse = await _mediator.Send(command, cancellationToken);
 
+                var commandGetLastAIMessage = new GetLastAIMessageQuery
+                {
+                    ConversationId = dto.ConversationId,
+                };
+                var lastAIMessage = await _mediator.Send(commandGetLastAIMessage, cancellationToken);
+                if (lastAIMessage == null)
+                {
+                    return StatusCode(500, new { error = "Failed to retrieve last AI message." });
+                }
+
                 Response.Headers.ContentType = "text/event-stream";
                 Response.Headers.CacheControl = "no-cache";
                 Response.Headers.Connection = "keep-alive";
                 Response.Headers.AccessControlAllowOrigin = "*";
 
+                var messageIdJson = JsonSerializer.Serialize(new { type = "messageId", messageId = lastAIMessage.Id });
+                var messageIdData = $"data: {messageIdJson}\n\n";
+                await Response.WriteAsync(messageIdData, cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+
                 await foreach (var chunk in streamResponse.WithCancellation(cancellationToken))
                 {
                     if (!string.IsNullOrEmpty(chunk))
                     {
-                        var data = $"data: {chunk}\n\n";
+                        var jsonData = JsonSerializer.Serialize(new { type = "v", content = chunk });
+                        var data = $"data: {jsonData}\n\n";
                         await Response.WriteAsync(data, cancellationToken);
                         await Response.Body.FlushAsync(cancellationToken);
                     }

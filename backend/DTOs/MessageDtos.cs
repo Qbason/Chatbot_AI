@@ -5,7 +5,7 @@ namespace ChatbotAIService.DTOs
     public class StreamChatDto
     {
         public required string Message { get; set; }
-        public int? ConversationId { get; set; }
+        public int ConversationId { get; set; }
     }
 
     public class MessageFeedbackDto
