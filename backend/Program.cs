@@ -8,12 +8,13 @@ using DotNetEnv;
 using OpenAI;
 using System.ClientModel;
 
-Env.Load("../.env");
+Env.Load(".env");
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddHealthChecks();
 
 builder.Services.AddCors(options =>
 {
@@ -74,9 +75,9 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.UseSwaggerUi(options =>
-{
-    options.DocumentPath = "/openapi/v1.json";
-});
+    {
+        options.DocumentPath = "/openapi/v1.json";
+    });
 }
 
 app.UseCors("AllowAngularApp");
@@ -90,5 +91,6 @@ app.UseUserIdMiddleware(options =>
 
 app.MapControllers();
 
+app.MapHealthChecks("/health");
 
 app.Run();
