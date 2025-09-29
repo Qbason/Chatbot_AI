@@ -11,6 +11,16 @@ import {
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
 
+type SSEType =
+  | {
+      type: 'messageId';
+      messageId: number;
+    }
+  | {
+      type: 'v';
+      content: string;
+    };
+
 @Injectable({
   providedIn: 'root',
 })
@@ -41,13 +51,7 @@ export class ConversationService {
     return this.http.delete<void>(`${this.baseUrl}/conversation/${id}`);
   }
 
-  getConversationStreamStatus(id: number): Observable<{ status: ConversationStatus }> {
-    return this.http.get<{ status: ConversationStatus }>(
-      `${this.baseUrl}/conversation/${id}/stream_status`
-    );
-  }
-
-  streamChat(request: StreamChatRequest): Observable<string> {
+  streamChat(request: StreamChatRequest): Observable<SSEType> {
     return this.createEventSource(`${this.baseUrl}/chat/stream`, request);
   }
 
@@ -55,14 +59,11 @@ export class ConversationService {
     return this.http.post<void>(`${this.baseUrl}/chat/stop_conversation`, { conversationId });
   }
 
-  //TODO: implement resume conversation
-  // resumeStream(conversationId: number, message: string): Observable<string> {}
-
   addMessageFeedback(request: MessageFeedbackRequest): Observable<void> {
     return this.http.post<void>(`${this.baseUrl}/conversation/message_feedback`, request);
   }
 
-  private createEventSource(url: string, body: StreamChatRequest): Observable<string> {
+  private createEventSource(url: string, body: StreamChatRequest): Observable<SSEType> {
     return new Observable((observer) => {
       const authHeader = this.authService.authHeader ?? '';
 
@@ -107,7 +108,8 @@ export class ConversationService {
                     return;
                   }
                   if (data.trim()) {
-                    observer.next(data);
+                    const parsedData = JSON.parse(data) as SSEType;
+                    observer.next(parsedData);
                   }
                 }
               }

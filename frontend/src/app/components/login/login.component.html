@@ -1,6 +1,6 @@
 <div class="login-container">
   <mat-card class="login-card">
-    <mat-card-header>
+    <mat-card-header [style]="{ display: 'flex', 'justify-content': 'center' }">
       <mat-card-title>ChatBot AI</mat-card-title>
       <mat-card-subtitle>Please enter your email to continue</mat-card-subtitle>
     </mat-card-header>
@@ -31,8 +31,7 @@
             class="login-button"
           >
             @if (loading()) {
-            <mat-spinner diameter="20" class="spinner"></mat-spinner>
-            Logging in... } @else { Login }
+            <mat-spinner diameter="20" class="spinner"></mat-spinner>} @else { Login }
           </button>
         </div>
       </form>

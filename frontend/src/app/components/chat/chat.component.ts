@@ -1,4 +1,14 @@
-import { Component, signal, effect, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import {
+  Component,
+  signal,
+  effect,
+  ViewChild,
+  ElementRef,
+  AfterViewInit,
+  viewChild,
+  Input,
+  computed,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -29,6 +39,7 @@ import {
 import { catchError, of, Subscription, switchMap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { AIHeader } from '../ai-header/ai-header';
 
 @Component({
   selector: 'app-chat',
@@ -49,20 +60,28 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
     MatMenuModule,
     MatDividerModule,
     MatTooltipModule,
+    AIHeader,
   ],
+  standalone: true,
+  host: { class: 'chat-container' },
 })
-export class ChatComponent implements AfterViewInit {
-  @ViewChild('messageContainer') messageContainer!: ElementRef;
-  @ViewChild('messageInput') messageInput!: ElementRef;
-
+export class ChatComponent {
+  messageContainer = viewChild<ElementRef>('messageContainer');
+  titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
   conversations = signal<Conversation[]>([]);
   conversations$ = toObservable(this.conversations);
   selectedConversationId = signal<number | null>(null);
   selectedConversation = signal<Conversation | null>(null);
   currentMessageValue = '';
   isStreaming = signal(false);
+
+  streamingMessageConversationId = signal<number | null>(null);
   streamingMessageContent = signal('');
+  streamingMessageId: number | null = null;
   streamSubscription: Subscription | null = null;
+  isStreamingInTheSameConversation = computed(() => {
+    return this.streamingMessageConversationId() === this.selectedConversation()?.id;
+  });
 
   editingConversationId = signal<number | null>(null);
   editingTitle = '';
@@ -70,11 +89,7 @@ export class ChatComponent implements AfterViewInit {
   Role = Role;
   Rating = Rating;
 
-  constructor(
-    private authService: AuthService,
-    private conversationService: ConversationService,
-    private snackBar: MatSnackBar
-  ) {
+  constructor(private conversationService: ConversationService, private snackBar: MatSnackBar) {
     this.loadConversations();
 
     effect(() => {
@@ -89,18 +104,17 @@ export class ChatComponent implements AfterViewInit {
         this.conversationService.getConversation(conversationId).subscribe({
           next: (conversation) => {
             this.selectedConversation.set(conversation);
+            setTimeout(() => this.scrollToBottom(), 0);
           },
           error: (error) => {
             console.error('Error loading conversation:', error);
             this.snackBar.open('Error loading conversation', 'Close', { duration: 3000 });
           },
         });
+      } else {
+        this.selectedConversation.set(null);
       }
     });
-  }
-
-  ngAfterViewInit(): void {
-    this.scrollToBottom();
   }
 
   loadConversations(): void {
@@ -124,6 +138,7 @@ export class ChatComponent implements AfterViewInit {
       .subscribe((conversation) => {
         if (conversation) {
           this.selectedConversation.set(conversation);
+          setTimeout(() => this.scrollToBottom(), 0);
         }
       });
   }
@@ -177,9 +192,14 @@ export class ChatComponent implements AfterViewInit {
       conversationId,
     };
 
+    this.streamingMessageConversationId.set(conversationId);
     this.streamSubscription = this.conversationService.streamChat(streamRequest).subscribe({
       next: (chunk) => {
-        this.streamingMessageContent.update((content) => content + chunk);
+        if (chunk.type === 'v') {
+          this.streamingMessageContent.update((content) => content + chunk.content);
+        } else if (chunk.type === 'messageId') {
+          this.streamingMessageId = chunk.messageId;
+        }
       },
       complete: () => {
         this.finalizeStreamingMessage(conversationId);
@@ -187,7 +207,9 @@ export class ChatComponent implements AfterViewInit {
       error: (error) => {
         console.error('Streaming error:', error);
         this.isStreaming.set(false);
+        this.streamingMessageId = null;
         this.streamingMessageContent.set('');
+        this.streamingMessageConversationId.set(null);
         this.snackBar.open('Error sending message', 'Close', { duration: 3000 });
       },
     });
@@ -213,52 +235,6 @@ export class ChatComponent implements AfterViewInit {
     }
   }
 
-  private finalizeStreamingMessage(conversationId: number): void {
-    const content = this.streamingMessageContent();
-    if (content) {
-      this.addMessageToConversation(conversationId, {
-        //TODO: Replace with real ID from server
-        id: Date.now() + 1,
-        role: Role.AI,
-        content,
-        timestamp: new Date().toISOString(),
-        ratings: [],
-        conversationId,
-      });
-    }
-
-    this.isStreaming.set(false);
-    this.streamingMessageContent.set('');
-
-    this.conversationService.getConversation(conversationId).subscribe({
-      next: (updatedConversation) => {
-        this.conversations.update((convs) =>
-          convs.map((c) => (c.id === conversationId ? updatedConversation : c))
-        );
-        this.selectedConversation.set(updatedConversation);
-      },
-      error: (error) => {
-        console.error('Error refreshing conversation:', error);
-      },
-    });
-  }
-
-  private addMessageToConversation(conversationId: number, message: Message): void {
-    this.conversations.update((convs) =>
-      convs.map((c) => (c.id === conversationId ? { ...c, messages: [...c.messages, message] } : c))
-    );
-
-    const currentConv = this.selectedConversation();
-    if (currentConv && currentConv.id === conversationId) {
-      this.selectedConversation.set({
-        ...currentConv,
-        messages: [...currentConv.messages, message],
-      });
-    }
-
-    setTimeout(() => this.scrollToBottom(), 0);
-  }
-
   rateMessage(messageId: number, rating: Rating): void {
     const conversationId = this.selectedConversation()?.id;
     if (!conversationId) return;
@@ -279,26 +255,6 @@ export class ChatComponent implements AfterViewInit {
           this.snackBar.open('Error submitting feedback', 'Close', { duration: 3000 });
         },
       });
-  }
-
-  private updateMessageRating(messageId: number, rating: Rating): void {
-    const conversation = this.selectedConversation();
-    if (!conversation) return;
-
-    const updatedMessages = conversation.messages.map((message) => {
-      if (message.id === messageId) {
-        return {
-          ...message,
-          ratings: [{ id: Date.now(), messageId, value: rating, userId: '' }],
-        };
-      }
-      return message;
-    });
-
-    this.selectedConversation.set({
-      ...conversation,
-      messages: updatedMessages,
-    });
   }
 
   deleteConversation(conversationId: number): void {
@@ -327,11 +283,10 @@ export class ChatComponent implements AfterViewInit {
     this.editingTitle = currentTitle;
 
     setTimeout(() => {
-      //TODO: do not use querySelector
-      const input = document.querySelector('.edit-title-field input') as HTMLInputElement;
+      const input = this.titleInput();
       if (input) {
-        input.focus();
-        input.select();
+        input.nativeElement.focus();
+        input.nativeElement.select();
       }
     }, 100);
   }
@@ -373,21 +328,10 @@ export class ChatComponent implements AfterViewInit {
     this.editingTitle = '';
   }
 
-  logout(): void {
-    this.authService.logout();
-  }
-
   onKeyPress(event: KeyboardEvent): void {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       this.sendMessage();
-    }
-  }
-
-  private scrollToBottom(): void {
-    if (this.messageContainer) {
-      const element = this.messageContainer.nativeElement;
-      element.scrollTop = element.scrollHeight;
     }
   }
 
@@ -401,5 +345,68 @@ export class ChatComponent implements AfterViewInit {
   isRated(message: Message, rating: Rating): boolean {
     const messageRating = this.getMessageRating(message);
     return messageRating === rating;
+  }
+
+  private updateMessageRating(messageId: number, rating: Rating): void {
+    const conversation = this.selectedConversation();
+    if (!conversation) return;
+
+    const updatedMessages = conversation.messages.map((message) => {
+      if (message.id === messageId) {
+        return {
+          ...message,
+          ratings: [{ id: Date.now(), messageId, value: rating, userId: '' }],
+        };
+      }
+      return message;
+    });
+
+    this.selectedConversation.set({
+      ...conversation,
+      messages: updatedMessages,
+    });
+  }
+
+  private scrollToBottom(): void {
+    const messageContainer = this.messageContainer();
+    if (messageContainer) {
+      const element = messageContainer.nativeElement;
+      element.scrollTop = element.scrollHeight;
+    }
+  }
+
+  private finalizeStreamingMessage(conversationId: number): void {
+    const content = this.streamingMessageContent();
+    if (content) {
+      this.addMessageToConversation(conversationId, {
+        id: this.streamingMessageId ?? Date.now() + 1,
+        role: Role.AI,
+        content,
+        timestamp: new Date().toISOString(),
+        ratings: [],
+        conversationId,
+      });
+    }
+
+    this.streamingMessageId = null;
+    this.isStreaming.set(false);
+    this.streamingMessageContent.set('');
+    this.streamingMessageConversationId.set(null);
+  }
+
+  private addMessageToConversation(conversationId: number, message: Message): void {
+    this.conversations.update((convs) =>
+      convs.map((c) => (c.id === conversationId ? { ...c, messages: [...c.messages, message] } : c))
+    );
+
+    const currentConv = this.selectedConversation();
+    if (currentConv && currentConv.id === conversationId) {
+      this.selectedConversation.set({
+        ...currentConv,
+        messages: [...currentConv.messages, message],
+      });
+    }
+
+    setTimeout(() => this.scrollToBottom(), 0);
   }
 }

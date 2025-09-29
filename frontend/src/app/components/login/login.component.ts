@@ -61,7 +61,6 @@ export class LoginComponent {
         this.router.navigate(['/chat']);
       },
       error: (error) => {
-        console.log(error);
         this.loading.set(false);
         this.snackBar.open('Login failed. Please try again.', 'Close', {
           duration: 3000,
