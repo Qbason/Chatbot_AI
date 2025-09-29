@@ -16,7 +16,7 @@ namespace ChatbotAIService.Controllers
         //TODO: use type delta and message
         // SSE 
         [HttpPost("stream")]
-        public async Task<IActionResult> StreamChat([FromBody] StreamChatDto dto)
+        public async Task<IActionResult> StreamChat([FromBody] StreamChatDto dto, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -26,31 +26,36 @@ namespace ChatbotAIService.Controllers
                     ConversationId = dto.ConversationId,
                 };
 
-                var streamResponse = await _mediator.Send(command);
+                var streamResponse = await _mediator.Send(command, cancellationToken);
 
                 Response.Headers.ContentType = "text/event-stream";
                 Response.Headers.CacheControl = "no-cache";
                 Response.Headers.Connection = "keep-alive";
                 Response.Headers.AccessControlAllowOrigin = "*";
 
-                await foreach (var chunk in streamResponse)
+                await foreach (var chunk in streamResponse.WithCancellation(cancellationToken))
                 {
                     if (!string.IsNullOrEmpty(chunk))
                     {
                         var data = $"data: {chunk}\n\n";
-                        await Response.WriteAsync(data);
-                        await Response.Body.FlushAsync();
+                        await Response.WriteAsync(data, cancellationToken);
+                        await Response.Body.FlushAsync(cancellationToken);
                     }
                 }
 
-                await Response.WriteAsync("data: [DONE]\n\n");
-                await Response.Body.FlushAsync();
+                await Response.WriteAsync("data: [DONE]\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
 
+
+                return new EmptyResult();
+            }
+            catch (OperationCanceledException)
+            {
                 return new EmptyResult();
             }
             catch (UnauthorizedAccessException ex)
             {
-                return NotFound(new { error = ex.Message });
+                return Unauthorized(new { error = ex.Message });
             }
             catch (Exception ex)
             {
@@ -87,7 +92,7 @@ namespace ChatbotAIService.Controllers
         //TODO: use type delta and message
         //SSE
         [HttpPost("resume")]
-        public async Task<IActionResult> ResumeStream([FromBody] ResumeStreamDto dto)
+        public async Task<IActionResult> ResumeStream([FromBody] ResumeStreamDto dto, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -97,31 +102,36 @@ namespace ChatbotAIService.Controllers
                     Message = dto.Message
                 };
 
-                var streamResponse = await _mediator.Send(command);
+                var streamResponse = await _mediator.Send(command, cancellationToken);
 
                 Response.Headers.ContentType = "text/event-stream";
                 Response.Headers.CacheControl = "no-cache";
                 Response.Headers.Connection = "keep-alive";
                 Response.Headers.AccessControlAllowOrigin = "*";
 
-                await foreach (var chunk in streamResponse)
+                await foreach (var chunk in streamResponse.WithCancellation(cancellationToken))
                 {
                     if (!string.IsNullOrEmpty(chunk))
                     {
                         var data = $"data: {chunk}\n\n";
-                        await Response.WriteAsync(data);
-                        await Response.Body.FlushAsync();
+                        await Response.WriteAsync(data, cancellationToken);
+                        await Response.Body.FlushAsync(cancellationToken);
                     }
                 }
 
-                await Response.WriteAsync("data: [DONE]\n\n");
-                await Response.Body.FlushAsync();
+                await Response.WriteAsync("data: [DONE]\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
 
+
+                return new EmptyResult();
+            }
+            catch (OperationCanceledException)
+            {
                 return new EmptyResult();
             }
             catch (UnauthorizedAccessException ex)
             {
-                return NotFound(new { error = ex.Message });
+                return Unauthorized(new { error = ex.Message });
             }
             catch (ArgumentException ex)
             {
